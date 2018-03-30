@@ -536,6 +536,7 @@ class DNBinary:
 
     _objects = None
     _objrefs = None
+    _pruned = None
     _values = None
 
     def __init__(self, f, best_effort = False, expand = False):
@@ -543,6 +544,7 @@ class DNBinary:
         self._objects = {}
         self._objrefs = []
         self._values = {}
+        self._pruned = set()
         self._records = []
         self._strict = not best_effort
         self._expand = expand
@@ -642,6 +644,14 @@ class DNBinary:
             if record_id(r) == rid:
                 return i
 
+    def _prune(self, objid):
+        if objid in self._pruned:
+            return
+        x = self._find_record(objid)
+        if x:
+            del self._records[x]
+        self._pruned.add(objid)
+
     def backfill(self, prune = True):
         for refs in self._objrefs:
             objid = refs[0]
@@ -649,9 +659,7 @@ class DNBinary:
             values = self._fetchValues(objid)
             refs[1]['Values'] = values
             if prune:
-                x = self._find_record(objid)
-                if x:
-                    del self._records[x]
+                self._prune(objid)
         return self._records
 
     def crunch(self):
