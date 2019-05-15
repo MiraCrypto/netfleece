@@ -360,7 +360,6 @@ class RecordStream(NetStream):
         super().__init__(stream)
         self._objects = {}
         self._objrefs = []
-        self._values = {}
         self.expand = expand
 
     def record(self):
@@ -375,11 +374,16 @@ class RecordStream(NetStream):
         """Retrieve an object by its Object Reference."""
         return self._objects[ref]
 
-    def getValues(self, ref):
-        """Given an object reference, return its member values."""
-        return self._values[ref]
+    def get_metadata(self, ref):
+        """Retrieve an object's metadata by its Object Reference."""
+        meta = dict(self._objects[ref])
+        if 'Value' in meta:
+            del meta['Value']
+        if 'Values' in meta:
+            del meta['Values']
+        return meta
 
-    def set_object(self, ref, obj, values=None):
+    def set_object(self, ref, obj):
         """
         Register an object.
 
@@ -387,8 +391,7 @@ class RecordStream(NetStream):
         register this object so that it can be retrieved by later
         references to it.
         """
-        self._objects[ref] = dict(obj)
-        self._values[ref] = values
+        self._objects[ref] = obj
 
     def register_reference(self, ref, obj):
         self._objrefs.append(ObjectReference(ref, obj))
@@ -404,7 +407,6 @@ class RecordStream(NetStream):
             logging.debug("Reference to objid %s", format(reference.refid))
             obj = reference.object
             obj.update(self.get_object(reference.refid))
-            obj['Values'] = self.getValues(reference.refid)
 
     @property
     def object_definitions(self):
@@ -533,8 +535,8 @@ class RecordTypeEnum(Enum):
         if not reference:
             reference = record
         values = self._parse_values(recf, reference)
-        recf.set_object(objid, record, values)
         record['Values'] = values
+        recf.set_object(objid, record)
         return record
 
     @valuedispatch
@@ -557,7 +559,7 @@ class RecordTypeEnum(Enum):
             'ObjectId': recf.int32(),
             'MetadataId': recf.int32()
         }
-        fetch = recf.get_object(record['MetadataId'])
+        fetch = recf.get_metadata(record['MetadataId'])
         if recf.expand:
             record.update(fetch)
         return self._parse_class(recf, record['ObjectId'], record, fetch)
@@ -606,7 +608,7 @@ class RecordTypeEnum(Enum):
             'ObjectId': recf.int32(),
             'Value': recf.string()
         }
-        recf.set_object(record['ObjectId'], record, record['Value'])
+        recf.set_object(record['ObjectId'], record)
         return record
 
     @parse.register(BinaryArray)
@@ -658,8 +660,8 @@ class RecordTypeEnum(Enum):
                     raise Exception('Too many NullMultiple records?')
             values.append(record)
 
-        recf.set_object(array_record['ObjectId'], array_record, values)
         array_record['Values'] = values
+        recf.set_object(array_record['ObjectId'], array_record)
         return array_record
 
     # FIXME: Implement _parse_08
@@ -714,7 +716,7 @@ class DNBinary:
         if 'ClassInfo' in value:
             classinfo = value['ClassInfo']
         else:
-            fetch = self.f.get_object(value['MetadataId'])
+            fetch = self.f.get_metadata(value['MetadataId'])
             classinfo = fetch['ClassInfo']
         kv = {}
         for i in range(classinfo['MemberCount']):
