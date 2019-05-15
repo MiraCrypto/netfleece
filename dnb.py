@@ -1,13 +1,18 @@
 #!/usr/bin/python3
+"""
+dnb implements a parser based on MS-NRBF, the .NET Binary Format data structure.
+https://msdn.microsoft.com/en-us/library/cc236844.aspx
+"""
+
+#import base64
+import argparse
+import decimal
+from enum import Enum
+import json
+import os.path
+import re
 import sys
 import struct
-import datetime
-import json
-import argparse
-#import base64
-import urllib
-
-from enum import Enum
 from functools import singledispatch
 from functools import wraps
 
@@ -41,6 +46,7 @@ def valuedispatch(func):
     wrapper.registry = _func.registry
     return wrapper
 
+
 def record_id(record):
     if 'ObjectId' in record:
         return record['ObjectId']
@@ -60,98 +66,140 @@ class Stream:
             raise EOFError()
         return rdbytes
 
+    def record(self):
+        """Read an entire record from the stream."""
+        rtype = self.RecordTypeEnumeration()
+        obj = { 'RecordTypeEnum': rtype.name }
+        obj.update(rtype.parse(self))
+        return obj
+
     # 2.1.1 Common Data Types
 
     def boolean(self):
         return struct.unpack('<?', self.read(1))[0]
 
-    def u8(self):
+    def byte(self):
         return struct.unpack('<B', self.read(1))[0]
 
-    def i32(self):
-        return struct.unpack('<I', self.read(4))[0]
+    def int8(self):
+        return struct.unpack('<b', self.read(1))[0]
 
-    def i64(self):
+    def int16(self):
+        return struct.unpack('<h', self.read(2))[0]
+
+    def int32(self):
+        return struct.unpack('<i', self.read(4))[0]
+
+    def int64(self):
         return struct.unpack('<q', self.read(8))[0]
 
-    def f32(self):
-        return struct.unpack('<f', self.read(4))[0]
+    def uint16(self):
+        return struct.unpack('<H', self.read(2))[0]
 
-    def f64(self):
-        return struct.unpack('<d', self.read(8))[0]
+    def uint32(self):
+        return struct.unpack('<I', self.read(4))[0]
 
-    def u64(self):
+    def uint64(self):
         return struct.unpack('<Q', self.read(8))[0]
 
     # 2.1.1.1 Char
-    def Char(self):
+    def char(self):
+        #FIXME: How many bytes do we read here?
         raise Exception('Not Implemented')
 
     # 2.1.1.2 Double
-    def Double(self):
-        return self.f64()
+    def double(self):
+        return struct.unpack('<d', self.read(8))[0]
 
     # 2.1.1.3 Single
-    def Single(self):
-        return self.f32()
+    def single(self):
+        return struct.unpack('<f', self.read(4))[0]
 
     # 2.1.1.4 TimeSpan
-    def TimeSpan(self):
-        return self.i64()
+    def timespan(self):
+        return self.int64()
 
     # 2.1.1.5 DateTime
-    def DateTime(self):
-        dt = self.i64()
-        r = {}
-        if (dt & 0x01):
-            r['Kind'] = 'UTC'
-        elif (dt & 0x02):
-            r['Kind'] = 'Local'
+    def datetime(self):
+        ticks = self.int64()
+        ret = {}
+        if ticks & 0x01:
+            ret['Kind'] = 'UTC'
+        elif ticks & 0x02:
+            ret['Kind'] = 'Local'
         else:
-            r['Kind'] = None
-        r['ticks'] = dt & ~0x03
-        return r
+            ret['Kind'] = None
+        ret['ticks'] = ticks & ~0x03
+        return ret
 
     # 2.1.1.6 Length Prefixed String
-    def String(self):
+    def string(self):
         length = 0
         shift = 0
         while True:
-            byte = self.u8()
+            # FIXME: Must not exceed six bytes read
+            byte = self.byte()
             length += (byte & ~0x80) << shift
             shift += 7
-            if not (byte & 0x80):
+            if not byte & 0x80:
                 break
         raw = self.read(length)
         return raw.decode("utf-8")
 
     # 2.1.1.7 Decimcal
-    def Decimal(self):
-        d = self.String()
-        # Todo: verify string is in a correct format.
-        return d
+    def decimal(self):
+        d = self.string()
+        match = re.match(r"^(-)?([0-9]+)(\.([0-9]+))?$", d)
+        if not match:
+            raise Exception("Decimal in invalid format")
+        return decimal.Decimal(d)
 
     # 2.1.1.8 ClassTypeInfo
     def ClassTypeInfo(self):
         return {
-            'TypeName': self.String(),
-            'LibraryId': self.i32()
+            'TypeName': self.string(),
+            'LibraryId': self.int32()
         }
 
     # 2.1.2 Enumerations
 
     # 2.1.2.1 RecordTypeEnumeration
     def RecordTypeEnumeration(self):
-        return RecordTypeEnum(self.u8())
+        return RecordTypeEnum(self.byte())
 
     # 2.1.2.2 BinaryTypeEnumeration
     def BinaryTypeEnumeration(self):
-        tmp = self.u8()
-        return BinaryTypeEnum(tmp)
+        return BinaryTypeEnum(self.byte())
 
     # 2.1.2.3 PrimitiveTypeEnumeration
     def PrimitiveTypeEnumeration(self):
-        return PrimitiveTypeEnum(self.u8())
+        return PrimitiveTypeEnum(self.byte())
+
+    # 2.2 Method Invocation Records
+    # 2.2.2 Common Structures
+
+    # 2.2.2.1 ValueWithCode
+    def ValueWithCode(self):
+        enum = self.PrimitiveTypeEnumeration()
+        val = enum.parse(self)
+        return {
+            'PrimitiveTypeEnum': enum.value,
+            'Value': val
+        }
+
+    # 2.2.2.2 StringValueWithCode
+    def StringValueWithCode(self):
+        ret = self.ValueWithCode()
+        assert ret['Value'] == PrimitiveTypeEnum.String.value
+
+    # 2.2.2.3 ArrayOfValueWithCode
+    def ArrayOfValueWithCode(self):
+        length = self.int32()
+        values = []
+        for _ in range(length):
+            values.append(self.ValueWithCode())
+        return { "Length": length,
+                 "ListOfValueWithCode": values }
 
     # 2.3: Class Records
     # 2.3.1: Common Structures
@@ -159,13 +207,13 @@ class Stream:
     # 2.3.1.1: ClassInfo
     def ClassInfo(self):
         cinfo = {
-            'ObjectId': self.i32(),
-            'Name': self.String(),
-            'MemberCount': self.i32(),
+            'ObjectId': self.int32(),
+            'Name': self.string(),
+            'MemberCount': self.int32(),
             'MemberNames': []
         }
-        for i in range(cinfo['MemberCount']):
-            cinfo['MemberNames'].append(self.String())
+        for _ in range(cinfo['MemberCount']):
+            cinfo['MemberNames'].append(self.string())
         return cinfo
 
     # 2.3.1.2: MemberTypeInfo
@@ -173,7 +221,7 @@ class Stream:
         bnum = []
         bres = []
         aifo = []
-        for i in range(count):
+        for _ in range(count):
             bnum.append(self.BinaryTypeEnumeration())
         for b in bnum:
             bres.append(b.name)
@@ -189,7 +237,7 @@ class Stream:
 
     # 2.4.1.1 BinaryArrayTypeEnumeration
     def BinaryArrayTypeEnumeration(self):
-        return BinaryArrayTypeEnum(self.u8())
+        return BinaryArrayTypeEnum(self.byte())
 
 
 class PrimitiveTypeEnum(Enum):
@@ -220,21 +268,76 @@ class PrimitiveTypeEnum(Enum):
     def _parse_boolean(self, f):
         return f.boolean()
 
+    @parse.register(Byte)
+    def _parse_byte(self, f):
+        return f.byte()
+
+    @parse.register(Char)
+    def _parse_char(self, f):
+        return f.char()
+
+    @parse.register(Decimal)
+    def _parse_decimal(self, f):
+        return f.decimal()
+
+    @parse.register(Double)
+    def _parse_double(self, f):
+        return f.double()
+
+    @parse.register(Int16)
+    def _parse_int16(self, f):
+        return f.int16()
+
     @parse.register(Int32)
     def _parse_int32(self, f):
         return f.i32()
 
+    @parse.register(Int64)
+    def _parse_int64(self, f):
+        return f.int64()
+
+    @parse.register(SByte)
+    def _parse_sbyte(self, f):
+        return f.int8()
+
     @parse.register(Single)
     def _parse_single(self, f):
-        return f.Single()
+        return f.single()
+
+    @parse.register(TimeSpan)
+    def _parse_timespan(self, f):
+        return f.timespan()
+
+    @parse.register(DateTime)
+    def _parse_datetime(self, f):
+        return f.datetime()
+
+    @parse.register(UInt16)
+    def _parse_uint16(self, f):
+        return f.uint16()
+
+    @parse.register(UInt32)
+    def _parse_uint32(self, f):
+        return f.uint32()
 
     @parse.register(UInt64)
     def _parse_uint64(self, f):
-        return f.u64()
+        return f.uint64()
+
+    @parse.register(Null)
+    def _parse_null(self, f):
+        return None
+
+    @parse.register(String)
+    def _parse_string(self, f):
+        return f.string()
 
 
 class BinaryTypeEnum(Enum):
-    """Enumeration representing a BinaryTypeEnumeration, present in MemberTypeInfo and BinaryArray structures."""
+    """
+    Enumeration representing a BinaryTypeEnumeration.
+    Present in MemberTypeInfo and BinaryArray structures.
+    """
     Primitive      = 0
     String         = 1
     Object         = 2
@@ -286,37 +389,37 @@ class BinaryTypeEnum(Enum):
     # Value parse dispatch
 
     @valuedispatch
-    def parse(self, dnb, info):
+    def parse(self, f, info):
         raise Exception("Unimplemented BinaryTypeEnum.parse(%s:%d)" % (self.name, self.value))
 
     @parse.register(Primitive)
-    def _parse_primitive(self, dnb, info):
+    def _parse_primitive(self, f, info):
         e = PrimitiveTypeEnum[info]
-        return e.parse(dnb.f)
+        return e.parse(f)
 
     @parse.register(String)
-    def _parse_string(self, dnb, info):
-        return dnb._parseRecord()
+    def _parse_string(self, f, info):
+        return f.record()
 
 #    @parse.register(Object)
-#    def _parse_object(self, dnb, info):
+#    def _parse_object(self, f, info):
 
     @parse.register(SystemClass)
-    def _parse_systemclass(self, dnb, info):
-        return dnb._parseRecord()
+    def _parse_systemclass(self, f, info):
+        return f.record()
 
     @parse.register(Class)
-    def _parse_class(self, dnb, info):
-        return dnb._parseRecord()
+    def _parse_class(self, f, info):
+        return f.record()
 
 #    @parse.register(ObjectArray)
-#    def _parse_objectarray(self, dnb, info):
+#    def _parse_objectarray(self, f, info):
 
 #    @parse.register(StringArray)
-#    def _parse_stringarray(self, dnb, info):
+#    def _parse_stringarray(self, f, info):
 
 #    @parse.register(PrimitiveArray)
-#    def _parse_primitivearray(self, dnb, info):
+#    def _parse_primitivearray(self, f, info):
 
 
 class BinaryArrayTypeEnum(Enum):
@@ -328,7 +431,7 @@ class BinaryArrayTypeEnum(Enum):
     RectangularOffset = 5
 
     def has_bounds(self):
-        return True if ('Offset' in self.name) else False
+        return True if ('Offset' in str(self.name)) else False
 
 
 class RecordTypeEnum(Enum):
@@ -356,109 +459,108 @@ class RecordTypeEnum(Enum):
     MethodCall                     = 21
     MethodReturn                   = 22
 
-    def __val_common(self, dnb, classRecord):
+    def __val_common(self, f, classRecord):
         values = []
         for i in range(classRecord['ClassInfo']['MemberCount']):
             bte = classRecord['MemberTypeInfo']['BinaryTypeEnums'][i]
             b = BinaryTypeEnum[bte]
-            values.append(b.parse(dnb, classRecord['MemberTypeInfo']['AdditionalInfos'][i]))
+            values.append(b.parse(f, classRecord['MemberTypeInfo']['AdditionalInfos'][i]))
         return values
 
-    def __class_common(self, dnb, objid, record, reference = None):
+    def __class_common(self, f, objid, record, reference = None):
         # Reference is an external ClassID Reference, if any
         if not reference:
             reference = record
-        values = self.__val_common(dnb, reference)
+        values = self.__val_common(f, reference)
         dnb._registerObject(objid, record, values)
         record['Values'] = values
         return record
 
     @valuedispatch
-    def parse(self, dnb):
+    def parse(self, f):
         raise Exception("Unimplemented RecordTypeEnum.parse(%s:%d)" % (self.name, self.value))
 
     @parse.register(SerializedStreamHeader)
-    def _parse_00(self, dnb):
+    def _parse_00(self, f):
         return {
-            'RootId': dnb.f.i32(),
-            'HeaderId': dnb.f.i32(),
-            'MajorVersion': dnb.f.i32(),
-            'MinorVersion': dnb.f.i32()
+            'RootId': f.int32(),
+            'HeaderId': f.int32(),
+            'MajorVersion': f.int32(),
+            'MinorVersion': f.int32()
         }
 
     @parse.register(ClassWithId)
-    def _parse_01(self, dnb):
+    def _parse_01(self, f):
         record = {
-            'ObjectId': dnb.f.i32(),
-            'MetadataId': dnb.f.i32()
+            'ObjectId': f.int32(),
+            'MetadataId': f.int32()
         }
         fetch = dnb._fetchObject(record['MetadataId'])
         if dnb._expand:
             record.update(fetch)
-        return self.__class_common(dnb, record['ObjectId'], record, fetch)
+        return self.__class_common(f, record['ObjectId'], record, fetch)
 
     @parse.register(SystemClassWithMembers)
-    def _parse_02(self, dnb):
+    def _parse_02(self, f):
         record = {
-            'ClassInfo': dnb.f.ClassInfo()
+            'ClassInfo': f.ClassInfo()
         }
         dnb._registerObject(record['ClassInfo']['ObjectId'], record)
         return record
 
     @parse.register(ClassWithMembers)
-    def _parse_03(self, dnb):
+    def _parse_03(self, f):
         record = {
-            'ClassInfo': dnb.f.ClassInfo(),
-            'LibraryId': dnb.f.i32()           # REFERENCE to a BinaryLibrary record
+            'ClassInfo': f.ClassInfo(),
+            'LibraryId': f.int32()         # REFERENCE to a BinaryLibrary record
         }
         dnb._registerObject(record['ClassInfo']['ObjectId'], record)
         return record
 
-    def __mat_common(self, dnb, system):
-        classinfo = dnb.f.ClassInfo()
-        mtypeinfo = dnb.f.MemberTypeInfo(classinfo['MemberCount'])
+    def __mat_common(self, f, system):
+        classinfo = f.ClassInfo()
+        mtypeinfo = f.MemberTypeInfo(classinfo['MemberCount'])
         if not system:
-            libraryid = dnb.f.i32()
+            libraryid = f.int32()
         record = {
             'ClassInfo': classinfo,
             'MemberTypeInfo': mtypeinfo
         }
         if not system:
             record['LibraryId'] = libraryid
-        return self.__class_common(dnb, record['ClassInfo']['ObjectId'], record)
+        return self.__class_common(f, record['ClassInfo']['ObjectId'], record)
 
     @parse.register(SystemClassWithMembersAndTypes)
-    def _parse_04(self, dnb):
-        return self.__mat_common(dnb, True)
+    def _parse_04(self, f):
+        return self.__mat_common(f, True)
 
     @parse.register(ClassWithMembersAndTypes)
-    def _parse_05(self, dnb):
-        return self.__mat_common(dnb, False)
+    def _parse_05(self, f):
+        return self.__mat_common(f, False)
 
     @parse.register(BinaryObjectString)
-    def _parse_06(self, dnb):
+    def _parse_06(self, f):
         record = {
-            'ObjectId': dnb.f.i32(),
-            'Value': dnb.f.String()
+            'ObjectId': f.int32(),
+            'Value': f.string()
         }
-        # Hmm, not "Values" though, eh?
         dnb._registerObject(record['ObjectId'], record, record['Value'])
         return record
 
     @parse.register(BinaryArray)
-    def _parse_07(self, dnb):
-        objectid = dnb.f.i32()
-        binaryArrayType = dnb.f.BinaryArrayTypeEnumeration()
-        rank = dnb.f.i32()
+    def _parse_07(self, f):
+        objectid = f.int32()
+        binaryArrayType = f.BinaryArrayTypeEnumeration()
+        rank = f.int32()
         lengths = []
         for i in range(rank):
-            lengths.append(dnb.f.i32())
+            lengths.append(f.int32())
         bounds = []
         if binaryArrayType.has_bounds():
             for i in range(rank):
-                bounds.append(dnb.f.i32())
-        binarytype = dnb.f.BinaryTypeEnumeration()
-        atypeinfo = binarytype.parse_info(dnb.f)
+                bounds.append(f.int32())
+        binarytype = f.BinaryTypeEnumeration()
+        atypeinfo = binarytype.parse_info(f)
         record = {
             'ObjectId': objectid,
             'BinaryArrayTypeEnum': binaryArrayType.name,
@@ -473,7 +575,6 @@ class RecordTypeEnum(Enum):
         if not binaryArrayType.name == 'Single':
             raise Exception('BinaryArray of type %s is not implemented' % binaryArrayType.name)
 
-
         # Total Cells
         l = 1
         for i in range(rank):
@@ -483,7 +584,7 @@ class RecordTypeEnum(Enum):
         values = []
         i = 0
         while i < l:
-            r = binarytype.parse(dnb, atypeinfo)
+            r = binarytype.parse(f, atypeinfo)
             if isinstance(r, dict):
                 if 'NullCount' in r:
                     # Should handle both ObjectNullMultiple and ObjectNullMultiple256
@@ -499,54 +600,43 @@ class RecordTypeEnum(Enum):
         return record
 
     @parse.register(MemberReference)
-    def _parse_09(self, dnb):
+    def _parse_09(self, f):
         record = {
-            'IdRef': dnb.f.i32()
+            'IdRef': f.int32()
         }
         dnb._registerReference(record['IdRef'], record)
         return record
 
     @parse.register(ObjectNull)
-    def _parse_10(self, dnb):
+    def _parse_10(self, f):
         return { }
 
     @parse.register(MessageEnd)
-    def _parse_11(self, dnb):
+    def _parse_11(self, f):
         return { }
 
     @parse.register(BinaryLibrary)
-    def _parse_12(self, dnb):
+    def _parse_12(self, f):
         return {
-            'LibraryId': dnb.f.i32(),
-            'LibraryName': dnb.f.String()
+            'LibraryId': f.int32(),
+            'LibraryName': f.String()
         }
 
     @parse.register(ObjectNullMultiple256)
-    def _parse_13(self, dnb):
+    def _parse_13(self, f):
         return {
-            'NullCount': dnb.f.u8()
+            'NullCount': f.byte()
         }
 
     @parse.register(ObjectNullMultiple)
-    def _parse_14(self, dnb):
+    def _parse_14(self, f):
         return {
-            'NullCount': dnb.f.i32()
+            'NullCount': f.int32()
         }
 
 
 class DNBinary:
-    _expand = False
-    _crunch = False
-    _strict = False
-    _expand = False
-    _strict = True
-
-    _objects = None
-    _objrefs = None
-    _pruned = None
-    _values = None
-
-    def __init__(self, f, best_effort = False, expand = False):
+    def __init__(self, f, best_effort=False, expand=False):
         self.f = Stream(f)
         self._objects = {}
         self._objrefs = []
@@ -556,7 +646,7 @@ class DNBinary:
         self._strict = not best_effort
         self._expand = expand
 
-    def _registerObject(self, ref, obj, values = None):
+    def _registerObject(self, ref, obj, values=None):
         self._objects[ref] = dict(obj)
         self._values[ref] = values
 
@@ -569,16 +659,6 @@ class DNBinary:
 
     def _registerReference(self, ref, obj):
         self._objrefs.append((ref, obj))
-
-    def _parseRecord(self, register=False):
-        '''Read a record from the stream, but don't record it as a top-level object.'''
-        rtype = self.f.RecordTypeEnumeration()
-        obj = rtype.parse(self)
-        obj['RecordTypeEnum'] = rtype.name
-        if register:
-            self._records.append(obj)
-        return obj
-
 
     def _crunchClass(self, value):
         if not isinstance(value, dict):
@@ -598,12 +678,14 @@ class DNBinary:
         return kv
 
     def _crunch(self, value):
-        '''Given a JSON representation of a .NET Binary, return a recursively "minified" version of it, stripping away most of the metadata.'''
+        """
+        Given a JSON representation of a .NET Binary, return a recursively
+        "minified" version of it, stripping away most of the metadata.
+        """
         # If it's a dict...
         if isinstance(value, dict):
             # If it's a Class Record:
-            if (('ClassInfo' in value) or
-                ('MetadataId' in value)):
+            if 'ClassInfo' in value or 'MetadataId' in value:
                 return self._crunchClass(value)
             if 'RecordTypeEnum' in value:
                 # If it's a very verbose NULL:
@@ -628,14 +710,11 @@ class DNBinary:
         # Failing all else, just return the thing.
         return value
 
-    def parseRecord(self):
-        '''Read a top-level record from the stream.'''
-        return self._parseRecord(register=True)
-
     def parse(self):
         while True:
             try:
-                record = self.parseRecord()
+                record = self.f.record()
+                self._records.append(record)
             except Exception as E:
                 if self._strict:
                     raise
@@ -679,14 +758,24 @@ def main():
     parser = argparse.ArgumentParser(description='Convert json to dotnet binary formatter')
     parser.add_argument('-i', dest='inputFile', required=True)
     parser.add_argument('-o', dest='outputFile', required=False)
-    #parser.add_argument('-e', dest='encode', help='Url and base64 decode the input binary', required=False, action='store_true')
-    parser.add_argument('-x', dest='expand', help='Expand records with referenced Class records', required=False, action='store_true')
-    parser.add_argument('-b', dest='backfill', help='Backfill forward references', required=False, action='store_true')
-    parser.add_argument('-c', dest='crunch', help='Crunch JSON into a minified form', required=False, action='store_true')
-    parser.add_argument('-v', dest='verbose', help='Verbose mode', required=False, action='store_true')
-    parser.add_argument('-p', dest='print', help='Print JSON', required=False, action='store_true')
+    #parser.add_argument('-e', dest='encode',
+    #                    help='Url and base64 decode the input binary',
+    #                    required=False, action='store_true')
+    parser.add_argument('-x', dest='expand',
+                        help='Expand records with referenced Class records',
+                        required=False, action='store_true')
+    parser.add_argument('-b', dest='backfill',
+                        help='Backfill forward references',
+                        required=False, action='store_true')
+    parser.add_argument('-c', dest='crunch',
+                        help='Crunch JSON into a minified form',
+                        required=False, action='store_true')
+    parser.add_argument('-v', dest='verbose', help='Verbose mode',
+                        required=False, action='store_true')
+    parser.add_argument('-p', dest='print', help='Print JSON',
+                        required=False, action='store_true')
     parser.add_argument('-E', dest='lax',
-                        help='E for effort! Apply a best effort to dumping JSON when encountering errors',
+                        help='Apply a best effort to dumping JSON when encountering errors',
                         required=False, action='store_true')
     args = parser.parse_args()
 
@@ -712,5 +801,5 @@ def main():
     print("\tObject Definitions: %d" % len(dnb._objects))
     print("\tReferences: %d" % len(dnb._objrefs))
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()
