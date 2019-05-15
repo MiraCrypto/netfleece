@@ -2,6 +2,8 @@
 """
 dnb implements a parser based on MS-NRBF, the .NET Binary Format data structure.
 https://msdn.microsoft.com/en-us/library/cc236844.aspx
+
+Very loosely based on https://github.com/agix/NetBinaryFormatterParser
 """
 
 #import base64
