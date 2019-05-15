@@ -152,13 +152,14 @@ class Stream:
     def string(self):
         length = 0
         shift = 0
-        while True:
-            # FIXME: Must not exceed six bytes read
+        for i in range(5):
             byte = self.byte()
             length += (byte & ~0x80) << shift
             shift += 7
             if not byte & 0x80:
                 break
+            elif i == 5:
+                raise Exception("Variable Length (%d) exceeds maximum size")
         raw = self.read(length)
         return raw.decode("utf-8")
 
@@ -207,6 +208,7 @@ class Stream:
     def StringValueWithCode(self):
         ret = self.ValueWithCode()
         assert ret['Value'] == PrimitiveTypeEnum.String.value
+        return ret
 
     # 2.2.2.3 ArrayOfValueWithCode
     def ArrayOfValueWithCode(self):
@@ -712,33 +714,34 @@ class DNBinary:
         return a recursively minified version of it that strips away most
         of the .NET serialization metadata that is present in the structure.
         """
+        ret = value
         # If it's a dict...
         if isinstance(value, dict):
             # If it's a Class Record:
             if 'ClassInfo' in value or 'MetadataId' in value:
-                return self._crunchClass(value)
-            if 'RecordTypeEnum' in value:
-                # If it's a very verbose NULL:
-                if value['RecordTypeEnum'] == 'ObjectNull':
-                    return None
-            if 'Values' in value:
-                # If it's an Array-type record:
-                return self._crunch(value['Values'])
-            if 'Value' in value:
-                # If it's a primitive-type record:
-                return self._crunch(value['Value'])
-            # Hmm, what is this? Try our best:
-            d = {}
-            for k, v in value.items():
-                v = self._crunch(v)
-                if v is not None:
-                    d[k] = v
-            return d
-        # Well, it might be a list, too:
-        if isinstance(value, list):
-            return [self._crunch(v) for v in value]
-        # Failing all else, just return the thing.
-        return value
+                ret = self._crunchClass(value)
+            elif value.get('RecordTypeEnum') == 'ObjectNull':
+                # Null-type object
+                ret = None
+            elif 'Values' in value:
+                # Array-type object
+                ret = self._crunch(value['Values'])
+            elif 'Value' in value:
+                # Primitive-type record:
+                ret = self._crunch(value['Value'])
+            else:
+                # Generic dict? Fallback:
+                d = {}
+                for k, v in value.items():
+                    v = self._crunch(v)
+                    if v is not None:
+                        d[k] = v
+                ret = d
+        elif isinstance(value, list):
+            # List-type object:
+            if isinstance(value, list):
+                ret = [self._crunch(v) for v in value]
+        return ret
 
     def parse(self):
         while True:
