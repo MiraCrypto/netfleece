@@ -838,29 +838,35 @@ def main():
     if args.backfill:
         args.root = True
 
+    parsed = []
     infile = open(args.inputFile, 'rb')
-    dnb = DNBinary(infile, expand=args.expand)
+    while infile.read(1):
+        # As long as we have at least one byte, try to read an entire stream.
+        infile.seek(-1, os.SEEK_CUR)
 
-    j = dnb.parse()
-    if args.backfill:
-        j = dnb.backfill()
-    if args.crunch:
-        j = dnb.crunch()
-    if args.root and not (args.backfill or args.crunch):
-        j = dnb.root()
+        dnb = DNBinary(infile, expand=args.expand)
+
+        j = dnb.parse()
+        if args.backfill:
+            j = dnb.backfill()
+        if args.crunch:
+            j = dnb.crunch()
+        if args.root and not (args.backfill or args.crunch):
+            j = dnb.root()
+
+        parsed.append(j)
+        logging.info("\n")
+        logging.info("{:s}: ".format(args.inputFile))
+        logging.info("\tTop level records: {:d}".format(len(j)))
+        logging.info("\tObject Definitions: {:d}".format(dnb.object_definitions))
+        logging.info("\tReferences: {:d}".format(dnb.object_references))
 
     if args.outputFile:
         with open(args.outputFile, 'w') as outf:
-            outf.write(json.dumps(j))
+            outf.write(json.dumps(parsed))
+
     if args.print:
         print(json.dumps(j, indent=2))
-
-    print("\n")
-    print("{:s}: ".format(args.inputFile))
-    print("\tTop level records: {:d}".format(len(j)))
-    print("\tObject Definitions: {:d}".format(dnb.object_definitions))
-    print("\tReferences: {:d}".format(dnb.object_references))
-
 
 if __name__ == '__main__':
     main()
