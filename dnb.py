@@ -161,11 +161,11 @@ class PrimitiveStream:
 
     # 2.1.1.7 Decimcal
     def decimal(self):
-        d = self.string()
-        match = re.match(r"^(-)?([0-9]+)(\.([0-9]+))?$", d)
+        decstr = self.string()
+        match = re.match(r"^(-)?([0-9]+)(\.([0-9]+))?$", decstr)
         if not match:
             raise Exception("Decimal in invalid format")
-        return decimal.Decimal(d)
+        return decimal.Decimal(decstr)
 
 
 class PrimitiveTypeEnum(Enum):
@@ -371,7 +371,7 @@ class RecordStream(NetStream):
         obj['RecordTypeEnum'] = rtype.name
         return obj
 
-    def getObject(self, ref):
+    def get_object(self, ref):
         """Retrieve an object by its Object Reference."""
         return self._objects[ref]
 
@@ -379,7 +379,7 @@ class RecordStream(NetStream):
         """Given an object reference, return its member values."""
         return self._values[ref]
 
-    def setObject(self, ref, obj, values=None):
+    def set_object(self, ref, obj, values=None):
         """
         Register an object.
 
@@ -390,7 +390,7 @@ class RecordStream(NetStream):
         self._objects[ref] = dict(obj)
         self._values[ref] = values
 
-    def registerReference(self, ref, obj):
+    def register_reference(self, ref, obj):
         self._objrefs.append(ObjectReference(ref, obj))
 
     def backfill(self):
@@ -403,7 +403,7 @@ class RecordStream(NetStream):
         for reference in self._objrefs:
             logging.debug("Reference to objid %s", format(reference.refid))
             obj = reference.object
-            obj.update(self.getObject(reference.refid))
+            obj.update(self.get_object(reference.refid))
             obj['Values'] = self.getValues(reference.refid)
 
     @property
@@ -473,8 +473,8 @@ class BinaryTypeEnum(Enum):
     @parse.register(Primitive)
     def _parse_primitive(self, streamf: PrimitiveStream, info):
         # BTE's Primitive type has data serialized as a Primitive.
-        e = PrimitiveTypeEnum[info]
-        return e.parse(streamf)
+        enum = PrimitiveTypeEnum[info]
+        return enum.parse(streamf)
 
 
 class BinaryArrayTypeEnum(Enum):
@@ -518,10 +518,10 @@ class RecordTypeEnum(Enum):
     MethodCall                     = 21
     MethodReturn                   = 22
 
-    def _parse_values(self, recf: RecordStream, classRecord):
+    def _parse_values(self, recf: RecordStream, class_record):
         values = []
-        for i in range(classRecord['ClassInfo']['MemberCount']):
-            mti = classRecord['MemberTypeInfo']
+        for i in range(class_record['ClassInfo']['MemberCount']):
+            mti = class_record['MemberTypeInfo']
             bte = mti['BinaryTypeEnums'][i]
             btype = BinaryTypeEnum[bte]
             value = btype.parse(recf, mti['AdditionalInfos'][i])
@@ -533,7 +533,7 @@ class RecordTypeEnum(Enum):
         if not reference:
             reference = record
         values = self._parse_values(recf, reference)
-        recf.setObject(objid, record, values)
+        recf.set_object(objid, record, values)
         record['Values'] = values
         return record
 
@@ -557,7 +557,7 @@ class RecordTypeEnum(Enum):
             'ObjectId': recf.int32(),
             'MetadataId': recf.int32()
         }
-        fetch = recf.getObject(record['MetadataId'])
+        fetch = recf.get_object(record['MetadataId'])
         if recf.expand:
             record.update(fetch)
         return self._parse_class(recf, record['ObjectId'], record, fetch)
@@ -567,7 +567,7 @@ class RecordTypeEnum(Enum):
         record = {
             'ClassInfo': recf.ClassInfo()
         }
-        recf.setObject(record['ClassInfo']['ObjectId'], record)
+        recf.set_object(record['ClassInfo']['ObjectId'], record)
         return record
 
     @parse.register(ClassWithMembers)
@@ -576,7 +576,7 @@ class RecordTypeEnum(Enum):
             'ClassInfo': recf.ClassInfo(),
             'LibraryId': recf.int32()     # REFERENCE to a BinaryLibrary record
         }
-        recf.setObject(record['ClassInfo']['ObjectId'], record)
+        recf.set_object(record['ClassInfo']['ObjectId'], record)
         return record
 
     def _parse_members_and_types(self, recf: RecordStream, system: bool):
@@ -606,26 +606,26 @@ class RecordTypeEnum(Enum):
             'ObjectId': recf.int32(),
             'Value': recf.string()
         }
-        recf.setObject(record['ObjectId'], record, record['Value'])
+        recf.set_object(record['ObjectId'], record, record['Value'])
         return record
 
     @parse.register(BinaryArray)
     def _parse_07(self, recf: RecordStream):
         objectid = recf.int32()
-        binaryArrayType = recf.BinaryArrayTypeEnumeration()
+        binary_array_type = recf.BinaryArrayTypeEnumeration()
         rank = recf.int32()
         lengths = []
         for i in range(rank):
             lengths.append(recf.int32())
         bounds = []
-        if binaryArrayType.has_bounds():
+        if binary_array_type.has_bounds():
             for i in range(rank):
                 bounds.append(recf.int32())
         binarytype = recf.BinaryTypeEnumeration()
         atypeinfo = binarytype.parse_info(recf)
-        record = {
+        array_record = {
             'ObjectId': objectid,
-            'BinaryArrayTypeEnum': binaryArrayType.name,
+            'BinaryArrayTypeEnum': binary_array_type.name,
             'rank': rank,
             'Lengths': lengths,
             'LowerBounds': bounds,
@@ -634,33 +634,33 @@ class RecordTypeEnum(Enum):
         }
 
         # FIXME Implement arrays beyond the 'Single' type
-        if not binaryArrayType == BinaryArrayTypeEnum.Single:
+        if not binary_array_type == BinaryArrayTypeEnum.Single:
             raise Exception("BinaryArray of type {} is not implemented".format(
-                binaryArrayType.name))
+                binary_array_type.name))
 
         # Total Cells
         cells = 1
         for i in range(rank):
-            cells = cells * record['Lengths'][i]
+            cells = cells * array_record['Lengths'][i]
 
         # bweoop
         values = []
         i = 0
         while i < cells:
-            r = binarytype.parse(recf, atypeinfo)
-            if isinstance(r, dict):
-                if 'NullCount' in r:
+            record = binarytype.parse(recf, atypeinfo)
+            if isinstance(record, dict):
+                if 'NullCount' in record:
                     # Should handle both ObjectNullMultiple and ObjectNullMultiple256
-                    i += r['NullCount']
+                    i += record['NullCount']
                 else:
                     i += 1
                 if i > cells:
                     raise Exception('Too many NullMultiple records?')
-            values.append(r)
+            values.append(record)
 
-        recf.setObject(record['ObjectId'], record, values)
-        record['Values'] = values
-        return record
+        recf.set_object(array_record['ObjectId'], array_record, values)
+        array_record['Values'] = values
+        return array_record
 
     # FIXME: Implement _parse_08
 
@@ -669,7 +669,7 @@ class RecordTypeEnum(Enum):
         record = {
             'IdRef': recf.int32()
         }
-        recf.registerReference(record['IdRef'], record)
+        recf.register_reference(record['IdRef'], record)
         return record
 
     @parse.register(ObjectNull)
@@ -707,14 +707,14 @@ class DNBinary:
         self.f = RecordStream(stream, expand=expand)
         self._records = []
 
-    def _crunchClass(self, value):
+    def _crunch_class(self, value):
         if not isinstance(value, dict):
             raise Exception("Cannot crunch this record as a Class")
         classinfo = None
         if 'ClassInfo' in value:
             classinfo = value['ClassInfo']
         else:
-            fetch = self.f.getObject(value['MetadataId'])
+            fetch = self.f.get_object(value['MetadataId'])
             classinfo = fetch['ClassInfo']
         kv = {}
         for i in range(classinfo['MemberCount']):
@@ -737,7 +737,7 @@ class DNBinary:
         if isinstance(value, dict):
             # If it's a Class Record:
             if 'ClassInfo' in value or 'MetadataId' in value:
-                ret = self._crunchClass(value)
+                ret = self._crunch_class(value)
             elif value.get('RecordTypeEnum') == 'ObjectNull':
                 # Null-type object
                 ret = None
@@ -749,12 +749,12 @@ class DNBinary:
                 ret = self._crunch(value['Value'])
             else:
                 # Generic dict? Fallback:
-                d = {}
+                obj = {}
                 for k, v in value.items():
                     v = self._crunch(v)
                     if v is not None:
-                        d[k] = v
-                ret = d
+                        obj[k] = v
+                ret = obj
         elif isinstance(value, list):
             # List-type object:
             if isinstance(value, list):
@@ -763,8 +763,8 @@ class DNBinary:
 
     def _find_record_id(self, rid):
         for i in range(len(self._records)):
-            r = self._records[i]
-            if record_id(r) == rid:
+            record = self._records[i]
+            if record_id(record) == rid:
                 return i
         return None
 
@@ -775,8 +775,8 @@ class DNBinary:
         return None
 
     def root(self):
-        rootID = self._records[0]['RootId']
-        return self._find_record(rootID)
+        root_id = self._records[0]['RootId']
+        return self._find_record(root_id)
 
     def backfill(self):
         self.f.backfill()
@@ -810,7 +810,7 @@ def main():
                         help='Url and base64 decode the input binary',
                         required=False, action='store_true')
     parser.add_argument('-x', dest='expand',
-                        help='Expand records with referenced Class records',
+                        help='Expand records with referenced Class Metadata records',
                         required=False, action='store_true')
     parser.add_argument('-r', dest='root',
                         help='Return only the Root record',
@@ -836,8 +836,8 @@ def main():
     if args.backfill:
         args.root = True
 
-    fr = open(args.inputFile, 'rb')
-    dnb = DNBinary(fr, expand=args.expand)
+    infile = open(args.inputFile, 'rb')
+    dnb = DNBinary(infile, expand=args.expand)
 
     j = dnb.parse()
     if args.backfill:
@@ -848,8 +848,8 @@ def main():
         j = dnb.root()
 
     if args.outputFile:
-        with open(args.outputFile, 'w') as fw:
-            fw.write(json.dumps(j))
+        with open(args.outputFile, 'w') as outf:
+            outf.write(json.dumps(j))
     if args.print:
         print(json.dumps(j, indent=2))
 
