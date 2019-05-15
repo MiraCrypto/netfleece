@@ -59,6 +59,7 @@ def record_id(record):
     return None
 
 class Stream:
+    # pylint: disable=too-many-public-methods
     def __init__(self, f):
         self.f = f
 
@@ -71,7 +72,7 @@ class Stream:
     def record(self):
         """Read an entire record from the stream."""
         rtype = self.RecordTypeEnumeration()
-        obj = { 'RecordTypeEnum': rtype.name }
+        obj = {'RecordTypeEnum': rtype.name}
         obj.update(rtype.parse(self))
         return obj
 
@@ -106,8 +107,21 @@ class Stream:
 
     # 2.1.1.1 Char
     def char(self):
-        #FIXME: How many bytes do we read here?
-        raise Exception('Not Implemented')
+        data = []
+        data.append(self.byte())
+        if data[0] & 0x80 == 0x80:
+            length = 1
+        elif data[0] & 0xE0 == 0xC0:
+            length = 2
+        elif data[0] & 0xF0 == 0xE0:
+            length = 3
+        elif data[0] & 0xF8 == 0xF0:
+            length = 4
+        else:
+            raise Exception("Invalid UTF8 byte sequence")
+        for _ in range(length - 1):
+            data.append(self.byte())
+        return bytes(data).decode('utf-8')
 
     # 2.1.1.2 Double
     def double(self):
@@ -200,8 +214,8 @@ class Stream:
         values = []
         for _ in range(length):
             values.append(self.ValueWithCode())
-        return { "Length": length,
-                 "ListOfValueWithCode": values }
+        return {"Length": length,
+                "ListOfValueWithCode": values}
 
     # 2.3: Class Records
     # 2.3.1: Common Structures
@@ -243,6 +257,9 @@ class Stream:
 
 
 class PrimitiveTypeEnum(Enum):
+    # pylint: disable=bad-whitespace
+    # pylint: disable=unused-argument
+    # pylint: disable=no-self-use
     Boolean  = 1
     Byte     = 2
     Char     = 3
@@ -263,8 +280,9 @@ class PrimitiveTypeEnum(Enum):
     String   = 18
 
     @valuedispatch
-    def parse(self, f):
-        raise Exception("Unimplemented PrimitiveTypeEnum.parse(%s:%d)" % (self.name, self.value))
+    def parse(self, _):
+        raise Exception("Unimplemented PrimitiveTypeEnum.parse(%s)" %
+                        repr(self))
 
     @parse.register(Boolean)
     def _parse_boolean(self, f):
@@ -340,6 +358,9 @@ class BinaryTypeEnum(Enum):
     Enumeration representing a BinaryTypeEnumeration.
     Present in MemberTypeInfo and BinaryArray structures.
     """
+    # pylint: disable=bad-whitespace
+    # pylint: disable=unused-argument
+    # pylint: disable=no-self-use
     Primitive      = 0
     String         = 1
     Object         = 2
@@ -425,6 +446,7 @@ class BinaryTypeEnum(Enum):
 
 
 class BinaryArrayTypeEnum(Enum):
+    # pylint: disable=bad-whitespace
     Single            = 0
     Jagged            = 1
     Rectangular       = 2
@@ -437,6 +459,9 @@ class BinaryArrayTypeEnum(Enum):
 
 
 class RecordTypeEnum(Enum):
+    # pylint: disable=bad-whitespace
+    # pylint: disable=unused-argument
+    # pylint: disable=no-self-use
     SerializedStreamHeader         = 0
     ClassWithId                    = 1
     SystemClassWithMembers         = 2
@@ -681,8 +706,11 @@ class DNBinary:
 
     def _crunch(self, value):
         """
-        Given a JSON representation of a .NET Binary, return a recursively
-        "minified" version of it, stripping away most of the metadata.
+        Returns a minified JSON representation of a .NET binary.
+
+        Given a full JSON representation of a deserialized .NET binary,
+        return a recursively minified version of it that strips away most
+        of the .NET serialization metadata that is present in the structure.
         """
         # If it's a dict...
         if isinstance(value, dict):
@@ -701,7 +729,7 @@ class DNBinary:
                 return self._crunch(value['Value'])
             # Hmm, what is this? Try our best:
             d = {}
-            for (k,v) in value.items():
+            for k, v in value.items():
                 v = self._crunch(v)
                 if v is not None:
                     d[k] = v
@@ -740,7 +768,7 @@ class DNBinary:
             del self._records[x]
         self._pruned.add(objid)
 
-    def backfill(self, prune = True):
+    def backfill(self, prune=True):
         for refs in self._objrefs:
             objid = refs[0]
             refs[1].update(self._fetchObject(objid))
