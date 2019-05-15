@@ -786,6 +786,14 @@ class DNBinary:
         x = self._find_record(rootID)
         return self._crunch(self._records[x])
 
+    @property
+    def object_definitions(self):
+        return len(self._objects)
+
+    @property
+    def object_references(self):
+        return len(self._objrefs)
+
 
 def main():
     parser = argparse.ArgumentParser(description='Convert json to dotnet binary formatter')
@@ -829,10 +837,11 @@ def main():
         print(json.dumps(j, indent=2))
 
     print("\n")
-    print("%s: " % args.inputFile)
-    print("\tTop level records: %d" % len(j))
-    print("\tObject Definitions: %d" % len(dnb._objects))
-    print("\tReferences: %d" % len(dnb._objrefs))
+    print("{:s}: ".format(args.inputFile))
+    print("\tTop level records: {:d}".format(len(j)))
+    print("\tObject Definitions: {:d}".format(dnb.object_definitions))
+    print("\tReferences: {:d}".format(dnb.object_references))
+
 
 if __name__ == '__main__':
     main()
