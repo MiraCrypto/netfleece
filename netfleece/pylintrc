@@ -11,4 +11,5 @@ good-names=i,j,k,ex,Run,_,f,v,
 	   ArrayOfValueWithCode,
 	   ClassInfo,
 	   MemberTypeInfo,
-	   BinaryArrayTypeEnumeration
+	   BinaryArrayTypeEnumeration,
+	   ArrayInfo

@@ -345,8 +345,17 @@ class NetStream(PrimitiveStream):
     def BinaryArrayTypeEnumeration(self):
         return BinaryArrayTypeEnum(self.byte())
 
+    # 2.4.2 Common Definitions
+    # 2.4.2.1 ArrayInfo
+    def ArrayInfo(self):
+        return {
+            'ObjectId': self.int32(),
+            'Length': self.int32()
+        }
+
 
 ObjectReference = namedtuple('ObjectReference', ('refid', 'object'))
+
 
 class RecordStream(NetStream):
     def __init__(self, stream, expand=False):
@@ -716,7 +725,19 @@ class RecordTypeEnum(Enum):
             values.append(value)
         return values
 
-    # FIXME: Implement _parse_{15, 16, 17, 20, 21, 22}
+    @parse.register(ArraySinglePrimitive)
+    def _parse_15(self, recf: RecordStream):
+        # (ArraySinglePrimitive *(MemberPrimitiveUnTyped))
+        ainfo = recf.ArrayInfo()
+        pte = recf.PrimitiveTypeEnumeration()
+        values = [pte.parse() for _ in range(ainfo['Length'])]
+        return {
+            'ArrayInfo': ainfo,
+            'PrimitiveTypeEnum': pte.name,
+            'Values': values
+        }
+
+    # FIXME: Implement _parse_{16, 17, 20, 21, 22}
 
 
 class DNBinary:
