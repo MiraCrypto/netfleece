@@ -1,9 +1,7 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 """
-dnb implements a parser based on MS-NRBF, the .NET Binary Format data structure.
+netfleece implements a parser based on MS-NRBF, the .NET Binary Format data structure.
 https://msdn.microsoft.com/en-us/library/cc236844.aspx
-
-Very loosely based on https://github.com/agix/NetBinaryFormatterParser
 """
 
 #import base64
@@ -273,7 +271,6 @@ class NetStream(PrimitiveStream):
         }
 
     # 2.1.2 Enumerations
-
     # 2.1.2.1 RecordTypeEnumeration
     def RecordTypeEnumeration(self):
         return RecordTypeEnum(self.byte())
@@ -288,7 +285,6 @@ class NetStream(PrimitiveStream):
 
     # 2.2 Method Invocation Records
     # 2.2.2 Common Structures
-
     # 2.2.2.1 ValueWithCode
     def ValueWithCode(self):
         enum = self.PrimitiveTypeEnumeration()
@@ -315,7 +311,6 @@ class NetStream(PrimitiveStream):
 
     # 2.3: Class Records
     # 2.3.1: Common Structures
-
     # 2.3.1.1: ClassInfo
     def ClassInfo(self):
         cinfo = {
@@ -346,7 +341,6 @@ class NetStream(PrimitiveStream):
 
     # 2.4 Array Records
     # 2.4.1 Enumerations
-
     # 2.4.1.1 BinaryArrayTypeEnumeration
     def BinaryArrayTypeEnumeration(self):
         return BinaryArrayTypeEnum(self.byte())
@@ -711,19 +705,22 @@ class DNBinary:
     def _crunch_class(self, value):
         if not isinstance(value, dict):
             raise Exception("Cannot crunch this record as a Class")
+
+        # If the user didn't expand ClassInfo metadata, we have to do it now:
         classinfo = None
         if 'ClassInfo' in value:
             classinfo = value['ClassInfo']
         else:
             fetch = self.f.get_metadata(value['MetadataId'])
             classinfo = fetch['ClassInfo']
-        kv = {}
+
+        classobj = {}
         for i in range(classinfo['MemberCount']):
             name = classinfo['MemberNames'][i]
             v = self._crunch(value['Values'][i])
             if v is not None:
-                kv[name] = v
-        return kv
+                classobj[name] = v
+        return classobj
 
     def _crunch(self, value):
         """
