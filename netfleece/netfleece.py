@@ -657,7 +657,14 @@ class RecordTypeEnum(Enum):
         recf.set_object(array_record['ObjectId'], array_record)
         return array_record
 
-    # FIXME: Implement _parse_08
+    @parse.register(MemberPrimitiveTyped)
+    def _parse_08(self, netf: NetStream):
+        pte = netf.PrimitiveTypeEnumeration()
+        record = {
+            'PrimitiveTypeEnum': pte.name,
+            'Value': pte.parse(netf)
+        }
+        return record
 
     @parse.register(MemberReference)
     def _parse_09(self, recf: RecordStream):
