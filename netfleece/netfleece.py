@@ -156,7 +156,7 @@ class PrimitiveStream:
         raw = self.read(length)
         return raw.decode("utf-8")
 
-    # 2.1.1.7 Decimcal
+    # 2.1.1.7 Decimal
     def decimal(self):
         decstr = self.string()
         match = re.match(r"^(-)?([0-9]+)(\.([0-9]+))?$", decstr)
