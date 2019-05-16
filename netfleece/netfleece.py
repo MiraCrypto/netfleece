@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-netfleece implements a parser based on MS-NRBF, the .NET Binary Format data structure.
+netfleece implements a parser based on MS-NRBF, the .NET Remoting Binary Format.
 https://msdn.microsoft.com/en-us/library/cc236844.aspx
 """
 
