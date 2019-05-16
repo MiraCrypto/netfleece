@@ -12,6 +12,10 @@ from functools import singledispatch
 from functools import wraps
 
 def valuedispatch(func):
+    """
+    valuedispatch function decorator, as obtained from
+    http://lukasz.langa.pl/8/single-dispatch-generic-functions/
+    """
     _func = singledispatch(func)
 
     @_func.register(Enum)
@@ -29,7 +33,10 @@ def valuedispatch(func):
             return _func.registry[args[0]](*args, **kw)
         return _func(*args, **kw)
 
-    wrapper.register = _func.register
+    def register(value):
+        return lambda f: _func.register(value, f)
+
+    wrapper.register = register
     wrapper.dispatch = _func.dispatch
     wrapper.registry = _func.registry
     return wrapper
