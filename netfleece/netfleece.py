@@ -4,7 +4,6 @@ netfleece implements a parser based on MS-NRBF, the .NET Remoting Binary Format.
 https://msdn.microsoft.com/en-us/library/cc236844.aspx
 """
 
-#import base64
 import argparse
 from collections import namedtuple
 import decimal
@@ -16,6 +15,8 @@ import re
 import struct
 from functools import singledispatch
 from functools import wraps
+
+from . import b64stream
 
 def valuedispatch(func):
     """
@@ -870,8 +871,8 @@ def main():
     parser = argparse.ArgumentParser(description='Convert MSNRBF to json')
     parser.add_argument('-i', dest='inputFile', required=True)
     parser.add_argument('-o', dest='outputFile', required=False)
-    parser.add_argument('-e', dest='encode',
-                        help='Url and base64 decode the input binary',
+    parser.add_argument('-d', dest='decode',
+                        help='base64 decode the input binary',
                         required=False, action='store_true')
     parser.add_argument('-x', dest='expand',
                         help='Expand records with referenced Class Metadata records',
@@ -906,7 +907,8 @@ def main():
         # As long as we have at least one byte, try to read an entire stream.
         infile.seek(-1, os.SEEK_CUR)
 
-        dnb = DNBinary(infile, expand=args.expand)
+        stream = b64stream.Base64Stream(infile) if args.decode else infile
+        dnb = DNBinary(stream, expand=args.expand)
 
         j = dnb.parse()
         if args.backfill:
