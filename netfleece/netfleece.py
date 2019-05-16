@@ -750,7 +750,17 @@ class RecordTypeEnum(Enum):
             'Values': self._array_values(recf, ainfo['Length'])
         }
 
-    # FIXME: Implement _parse_{17, 20, 21, 22}
+    @parse.register(ArraySingleString)
+    def _parse_17(self, recf: RecordStream):
+        # (ArraySingleString *(BinaryObjectString/MemberReference/nullObject))
+        # All of the above are full Record-types.
+        ainfo = recf.ArrayInfo()
+        return {
+            'ArrayInfo': ainfo,
+            'Values': self._array_values(recf, ainfo['Length'])
+        }
+
+    # FIXME: Implement _parse_{20, 21, 22}
 
 
 class DNBinary:
