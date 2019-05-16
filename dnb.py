@@ -15,7 +15,6 @@ import json
 import logging
 import os.path
 import re
-import sys
 import struct
 from functools import singledispatch
 from functools import wraps
