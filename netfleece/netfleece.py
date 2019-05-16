@@ -518,7 +518,7 @@ class RecordTypeEnum(Enum):
     ArraySingleString              = 17
     # 18 (Not defined in standard)
     # 19 (Not defined in standard)
-    ArrayOfType                    = 20
+    # 20 (Not defined in standard)
     MethodCall                     = 21
     MethodReturn                   = 22
 
@@ -760,7 +760,7 @@ class RecordTypeEnum(Enum):
             'Values': self._array_values(recf, ainfo['Length'])
         }
 
-    # FIXME: Implement _parse_{20, 21, 22}
+    # FIXME: Implement _parse_{21, 22}
 
 
 class DNBinary:
