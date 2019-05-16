@@ -694,6 +694,21 @@ class RecordTypeEnum(Enum):
             'NullCount': streamf.int32()
         }
 
+    @staticmethod
+    def _array_values(recf: RecordStream, length):
+        values = []
+        i = 0
+        while i < length:
+            value = recf.record()
+            if isinstance(value, dict) and 'NullCount' in value:
+                i += value['NullCount']
+            else:
+                i += 1
+            if i > length:
+                raise Exception('Too many NullMultiple records; exceeded array length')
+            values.append(value)
+        return values
+
     # FIXME: Implement _parse_{15, 16, 17, 20, 21, 22}
 
 
