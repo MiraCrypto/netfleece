@@ -737,7 +737,20 @@ class RecordTypeEnum(Enum):
             'Values': values
         }
 
-    # FIXME: Implement _parse_{16, 17, 20, 21, 22}
+    @parse.register(ArraySingleObject)
+    def _parse_16(self, recf: RecordStream):
+        # (ArraySingleObject *(memberReference))
+        #
+        # Technically this grammar allows for MemberPrimitiveUnTyped,
+        # but I think that's impossible to parse without type info, so
+        # I am assuming that possibility is excluded.
+        ainfo = recf.ArrayInfo()
+        return {
+            'ArrayInfo': ainfo,
+            'Values': self._array_values(recf, ainfo['Length'])
+        }
+
+    # FIXME: Implement _parse_{17, 20, 21, 22}
 
 
 class DNBinary:
