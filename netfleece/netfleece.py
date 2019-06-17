@@ -867,6 +867,36 @@ class DNBinary:
         return self.f.object_references
 
 
+def parseloop(handle, decode=False, expand=False,
+              backfill=False, crunch=False, root=False):
+    parsed = []
+    n = 1
+    while handle.read(1):
+        # As long as we have at least one byte, try to read an entire stream.
+        handle.seek(-1, os.SEEK_CUR)
+
+        stream = b64stream.Base64Stream(handle) if decode else handle
+        dnb = DNBinary(stream, expand=expand)
+
+        j = dnb.parse()
+        if backfill:
+            j = dnb.backfill()
+        if crunch:
+            j = dnb.crunch()
+        if root and not (backfill or crunch):
+            j = dnb.root()
+
+        parsed.append(j)
+        logging.info("\n")
+        logging.info("stream #{:d}".format(n))
+        logging.info("\tTop level records: {:d}".format(len(j)))
+        logging.info("\tObject Definitions: {:d}".format(dnb.object_definitions))
+        logging.info("\tReferences: {:d}".format(dnb.object_references))
+        n += 1
+
+    return parsed
+
+
 def main():
     parser = argparse.ArgumentParser(description='Convert MSNRBF to json')
     parser.add_argument('-i', dest='inputFile', required=True)
@@ -901,36 +931,17 @@ def main():
     if args.backfill:
         args.root = True
 
-    parsed = []
     infile = open(args.inputFile, 'rb')
-    while infile.read(1):
-        # As long as we have at least one byte, try to read an entire stream.
-        infile.seek(-1, os.SEEK_CUR)
-
-        stream = b64stream.Base64Stream(infile) if args.decode else infile
-        dnb = DNBinary(stream, expand=args.expand)
-
-        j = dnb.parse()
-        if args.backfill:
-            j = dnb.backfill()
-        if args.crunch:
-            j = dnb.crunch()
-        if args.root and not (args.backfill or args.crunch):
-            j = dnb.root()
-
-        parsed.append(j)
-        logging.info("\n")
-        logging.info("{:s}: ".format(args.inputFile))
-        logging.info("\tTop level records: {:d}".format(len(j)))
-        logging.info("\tObject Definitions: {:d}".format(dnb.object_definitions))
-        logging.info("\tReferences: {:d}".format(dnb.object_references))
+    logging.info("{:s}: ".format(args.inputFile))
+    parsed = parseloop(infile, decode=args.decode, expand=args.expand,
+                       backfill=args.backfill, crunch=args.crunch, root=args.root)
 
     if args.outputFile:
         with open(args.outputFile, 'w') as outf:
             outf.write(json.dumps(parsed))
 
     if args.print:
-        print(json.dumps(j, indent=2))
+        print(json.dumps(parsed, indent=2))
 
 if __name__ == '__main__':
     main()
