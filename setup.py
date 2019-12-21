@@ -26,6 +26,7 @@ def main():
 
     with open("README.md", "r") as infile:
         kwargs['long_description'] = infile.read()
+    kwargs['long_description_content_type'] = 'text/markdown'
 
     setuptools.setup(**kwargs)
 
