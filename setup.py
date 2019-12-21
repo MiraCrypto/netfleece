@@ -7,7 +7,7 @@ def main():
     """netfleece installation wrapper"""
     kwargs = {
         'name': 'netfleece',
-        'version': '0.1.0',
+        'version': '0.1.1',
         'author': 'nago',
         'author_email': 'nago@malie.io',
         'description': "Python 3.7+ Microsoft .NET Remoting Binary Format (MS-NRBF) to JSON parser",
