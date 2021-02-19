@@ -5,17 +5,16 @@ https://msdn.microsoft.com/en-us/library/cc236844.aspx
 """
 
 import argparse
-from collections import namedtuple
 import decimal
-from enum import Enum
 import json
 import logging
 import os.path
 import re
 import struct
+from collections import namedtuple
+from enum import Enum
+from functools import singledispatch, wraps
 from typing import BinaryIO
-from functools import singledispatch
-from functools import wraps
 
 from . import b64stream
 
