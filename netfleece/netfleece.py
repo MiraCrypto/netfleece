@@ -153,7 +153,7 @@ class PrimitiveStream:
             shift += 7
             if not byte & 0x80:
                 break
-            elif i == 5:
+            if i == 4:
                 raise Exception("Variable Length (%d) exceeds maximum size")
         raw = self.read(length)
         return raw.decode("utf-8")
