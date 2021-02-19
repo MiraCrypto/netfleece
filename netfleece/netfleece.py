@@ -19,6 +19,7 @@ from functools import wraps
 
 from . import b64stream
 
+
 def valuedispatch(func):
     """
     valuedispatch function decorator, as obtained from
@@ -534,7 +535,7 @@ class RecordTypeEnum(Enum):
             values.append(value)
         return values
 
-    def _parse_class(self, recf: RecordStream, objid, record, reference = None):
+    def _parse_class(self, recf: RecordStream, objid, record, reference=None):
         # Reference is an external ClassID Reference, if any
         if not reference:
             reference = record
@@ -687,11 +688,11 @@ class RecordTypeEnum(Enum):
 
     @parse.register(ObjectNull)
     def _parse_10(self, streamf: PrimitiveStream):
-        return { }
+        return {}
 
     @parse.register(MessageEnd)
     def _parse_11(self, streamf: PrimitiveStream):
-        return { }
+        return {}
 
     @parse.register(BinaryLibrary)
     def _parse_12(self, streamf: PrimitiveStream):
@@ -962,6 +963,7 @@ def main():
 
     if args.print:
         print(json.dumps(parsed, indent=2))
+
 
 if __name__ == '__main__':
     main()
