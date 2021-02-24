@@ -104,13 +104,17 @@ class PrimitiveStream:
     def char(self):
         data = []
         data.append(self.byte())
-        if data[0] & 0x80 == 0x80:
+        if data[0] & 0x80 == 0x00:
+            # 0xxx xxxx
             length = 1
         elif data[0] & 0xE0 == 0xC0:
+            # 110x xxxx
             length = 2
         elif data[0] & 0xF0 == 0xE0:
+            # 1110 xxxx
             length = 3
         elif data[0] & 0xF8 == 0xF0:
+            # 1111 0xxx
             length = 4
         else:
             raise Exception("Invalid UTF8 byte sequence")
