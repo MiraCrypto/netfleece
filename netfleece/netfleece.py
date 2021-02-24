@@ -643,10 +643,15 @@ class RecordTypeEnum(Enum):
             'AdditionalTypeInfo': atypeinfo
         }
 
-        # FIXME Implement arrays beyond the 'Single' type
-        if not binary_array_type == BinaryArrayTypeEnum.Single:
+        # TODO Implement arrays beyond the 'Single' type
+        if binary_array_type.has_bounds():
             raise Exception("BinaryArray of type {} is not implemented".format(
                 binary_array_type.name))
+
+        if rank > 1:
+            raise Exception(f"BinaryArray with Rank={rank} is not implemented")
+
+        # Single, Jagged, Rectangular can progress, but only if rank=1.
 
         # Total Cells
         cells = 1
