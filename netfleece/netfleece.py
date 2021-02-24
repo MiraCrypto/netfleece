@@ -732,12 +732,14 @@ class RecordTypeEnum(Enum):
         # (ArraySinglePrimitive *(MemberPrimitiveUnTyped))
         ainfo = recf.ArrayInfo()
         pte = recf.PrimitiveTypeEnumeration()
-        values = [pte.parse() for _ in range(ainfo['Length'])]
-        return {
+        values = [pte.parse(recf) for _ in range(ainfo['Length'])]
+        obj = {
             'ArrayInfo': ainfo,
             'PrimitiveTypeEnum': pte.name,
             'Values': values
         }
+        recf.set_object(ainfo['ObjectId'], obj)
+        return obj
 
     @parse.register(ArraySingleObject)
     def _parse_16(self, recf: RecordStream):
@@ -747,20 +749,24 @@ class RecordTypeEnum(Enum):
         # but I think that's impossible to parse without type info, so
         # I am assuming that possibility is excluded.
         ainfo = recf.ArrayInfo()
-        return {
+        obj = {
             'ArrayInfo': ainfo,
             'Values': self._array_values(recf, ainfo['Length'])
         }
+        recf.set_object(ainfo['ObjectId'], obj)
+        return obj
 
     @parse.register(ArraySingleString)
     def _parse_17(self, recf: RecordStream):
         # (ArraySingleString *(BinaryObjectString/MemberReference/nullObject))
         # All of the above are full Record-types.
         ainfo = recf.ArrayInfo()
-        return {
+        obj = {
             'ArrayInfo': ainfo,
             'Values': self._array_values(recf, ainfo['Length'])
         }
+        recf.set_object(ainfo['ObjectId'], obj)
+        return obj
 
     # FIXME: Implement _parse_{21, 22}
 
