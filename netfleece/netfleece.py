@@ -13,6 +13,7 @@ import logging
 import os.path
 import re
 import struct
+from typing import BinaryIO
 from functools import singledispatch
 from functools import wraps
 
@@ -867,33 +868,52 @@ class DNBinary:
         return self.f.object_references
 
 
-def parseloop(handle, decode=False, expand=False,
+def parse(handle: BinaryIO, decode: bool = False, expand: bool = False,
+          backfill: bool = False, crunch: bool = False, root: bool = False):
+    """
+    Parse a given binary MS-NRBF stream into a JSON-like data representation.
+
+    :param decode: Apply a base64 decode to the incoming stream.
+    :param expand: Expand references to Class Metadata to the full record.
+    :param backfill: Expand back-references to the full record.
+    :param crunch: Compact the JSON into a more minimal, native form.
+    :param root: Return the root object only. (Implied by backfill and crunch.)
+    """
+    stream = b64stream.Base64Stream(handle) if decode else handle
+    dnb = DNBinary(stream, expand=expand)
+
+    jdata = dnb.parse()
+    if backfill:
+        jdata = dnb.backfill()
+    if crunch:
+        jdata = dnb.crunch()
+    if root and not (backfill or crunch):
+        # (backfill/crunch imply root, so no need.)
+        jdata = dnb.root()
+
+    logging.info("\tTop level records: %d", len(jdata))
+    logging.info("\tObject Definitions: %d", dnb.object_definitions)
+    logging.info("\tReferences: %d", dnb.object_references)
+
+    return jdata
+
+
+def iterparse(handle, decode=False, expand=False,
               backfill=False, crunch=False, root=False):
-    parsed = []
     n = 1
     while handle.read(1):
         # As long as we have at least one byte, try to read an entire stream.
         handle.seek(-1, os.SEEK_CUR)
 
-        stream = b64stream.Base64Stream(handle) if decode else handle
-        dnb = DNBinary(stream, expand=expand)
-
-        j = dnb.parse()
-        if backfill:
-            j = dnb.backfill()
-        if crunch:
-            j = dnb.crunch()
-        if root and not (backfill or crunch):
-            j = dnb.root()
-
-        parsed.append(j)
-        logging.info("\n")
-        logging.info("stream #{:d}".format(n))
-        logging.info("\tTop level records: {:d}".format(len(j)))
-        logging.info("\tObject Definitions: {:d}".format(dnb.object_definitions))
-        logging.info("\tReferences: {:d}".format(dnb.object_references))
+        logging.info("\nStream #%d", n)
+        jdata = parse(handle, decode, expand, backfill, crunch, root)
+        yield jdata
         n += 1
 
+
+def parseloop(handle, decode=False, expand=False,
+              backfill=False, crunch=False, root=False):
+    parsed = list(iterparse(handle, decode, expand, backfill, crunch, root))
     return parsed
 
 
