@@ -303,7 +303,7 @@ class NetStream(PrimitiveStream):
     # 2.2.2.2 StringValueWithCode
     def StringValueWithCode(self):
         ret = self.ValueWithCode()
-        assert ret['Value'] == PrimitiveTypeEnum.String.value
+        assert ret['PrimitiveTypeEnum'] == PrimitiveTypeEnum.String.value
         return ret
 
     # 2.2.2.3 ArrayOfValueWithCode
