@@ -53,16 +53,6 @@ def valuedispatch(func):
     return wrapper
 
 
-def record_id(record):
-    if 'ObjectId' in record:
-        return record['ObjectId']
-    if 'ClassInfo' in record:
-        return record['ClassInfo']['ObjectId']
-    if 'ArrayInfo' in record:
-        return record['ArrayInfo']['ObjectId']
-    return None
-
-
 class PrimitiveStream:
     # pylint: disable=too-many-public-methods
     def __init__(self, f):
@@ -843,21 +833,9 @@ class DNBinary:
                 ret = [self._crunch(v) for v in value]
         return ret
 
-    def _find_record_id(self, rid):
-        for i, record in enumerate(self._records):
-            if record_id(record) == rid:
-                return i
-        return None
-
-    def _find_record(self, rid):
-        for record in self._records:
-            if record_id(record) == rid:
-                return record
-        return None
-
     def root(self):
         root_id = self._records[0]['RootId']
-        return self._find_record(root_id)
+        return self.f.get_object(root_id)
 
     def backfill(self):
         self.f.backfill()
