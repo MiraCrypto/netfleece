@@ -385,14 +385,10 @@ class RecordStream(NetStream):
         """Retrieve an object by its Object Reference."""
         return self._objects[ref]
 
-    def get_metadata(self, ref):
-        """Retrieve an object's metadata by its Object Reference."""
-        meta = dict(self._objects[ref])
-        if 'Value' in meta:
-            del meta['Value']
-        if 'Values' in meta:
-            del meta['Values']
-        return meta
+    def get_metadata(self, ref: int):
+        """Retrieve an object's metadata by its ObjectId."""
+        return {k: v for k, v in self._objects[ref].items()
+                if k not in ('Value', 'Values')}
 
     def set_object(self, ref, obj):
         """
