@@ -26,3 +26,19 @@ This is very loosely based on
 https://github.com/agix/NetBinaryFormatterParser, which is a Python2
 project, but also features a formatter that can perform the reverse
 operation.
+
+# Changelog
+
+## v0.1.2
+
+### New:
+- Preliminary support for single-dimension Jagged/Rectangular Arrays
+- Expose parse() and iterparse() helpers, joining parseloop().
+
+### Bugs:
+- Fix 2.1.1.1 Char parsing
+- Fix 2.1.1.6 LengthPrefixedString error conditions
+- Fix 2.2.2.2 StringValueWithCode asserting erroneously
+- Fix 2.4.3.2 ArraySingleObject not registering ObjectId
+- Fix 2.4.3.3 ArraySinglePrimitive
+- Fix 2.4.3.4 ArraySingleString not registering ObjectId

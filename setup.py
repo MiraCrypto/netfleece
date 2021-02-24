@@ -8,7 +8,7 @@ def main():
     """netfleece installation wrapper"""
     kwargs = {
         'name': 'netfleece',
-        'version': '0.1.1',
+        'version': '0.1.2',
         'author': 'nago',
         'author_email': 'nago@malie.io',
         'description': (
