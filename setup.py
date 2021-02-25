@@ -3,6 +3,7 @@
 
 import setuptools
 
+
 def main():
     """netfleece installation wrapper"""
     kwargs = {
@@ -10,7 +11,9 @@ def main():
         'version': '0.1.1',
         'author': 'nago',
         'author_email': 'nago@malie.io',
-        'description': "Python 3.7+ Microsoft .NET Remoting Binary Format (MS-NRBF) to JSON parser",
+        'description': (
+            "Python 3.7+ Microsoft .NET Remoting Binary Format (MS-NRBF) to JSON parser"
+        ),
         'url': "https://gitlab.com/malie-library/netfleece",
         'packages': setuptools.find_packages(),
         'scripts': ['bin/netfleece'],
@@ -18,7 +21,7 @@ def main():
             "Development Status :: 2 - Pre-Alpha",
             "License :: OSI Approved :: MIT License",
             "Natural Language :: English",
-            "Operating System :: OS Independent", # Uh, I hope, haha
+            "Operating System :: OS Independent",  # Uh, I hope, haha
             "Programming Language :: Python :: 3",
             "Topic :: Software Development :: Disassemblers",
         ]
@@ -29,6 +32,7 @@ def main():
     kwargs['long_description_content_type'] = 'text/markdown'
 
     setuptools.setup(**kwargs)
+
 
 if __name__ == '__main__':
     main()

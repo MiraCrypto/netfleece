@@ -1,6 +1,4 @@
-from .netfleece import DNBinary
-from .netfleece import main
-from .netfleece import iterparse, parse, parseloop
 from .b64stream import Base64Stream
+from .netfleece import DNBinary, iterparse, main, parse, parseloop
 
-name = "netfleece"
+__all__ = ["DNBinary", "main", "iterparse", "parse", "parseloop", "Base64Stream"]

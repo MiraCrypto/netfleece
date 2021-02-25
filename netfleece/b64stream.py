@@ -10,7 +10,9 @@ methods.
 import base64
 from math import ceil
 
+
 class Base64Stream:
+    # pylint: disable=too-few-public-methods
     """
     Base64Stream is a stream-like reader wrapper for Base64 encoded streams.
 

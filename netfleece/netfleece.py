@@ -158,7 +158,7 @@ class PrimitiveStream:
             if not byte & 0x80:
                 break
             if i == 4:
-                raise Exception("Variable Length (%d) exceeds maximum size")
+                raise Exception(f"Variable Length ({length}) exceeds maximum size")
         raw = self.read(length)
         return raw.decode("utf-8")
 
@@ -412,7 +412,7 @@ class RecordStream(NetStream):
         object. Note that this is NOT a copy of the object.
         """
         for reference in self._objrefs:
-            logging.debug("Reference to objid %s", format(reference.refid))
+            logging.debug("Reference to objid %s", str(reference.refid))
             obj = reference.object
             obj.update(self.get_object(reference.refid))
 
@@ -777,7 +777,7 @@ class RecordTypeEnum(Enum):
         recf.set_object(ainfo['ObjectId'], obj)
         return obj
 
-    # FIXME: Implement _parse_{21, 22}
+    # TODO: Implement _parse_{21, 22}
 
 
 class DNBinary:
@@ -885,6 +885,7 @@ class DNBinary:
 
 def parse(handle: BinaryIO, decode: bool = False, expand: bool = False,
           backfill: bool = False, crunch: bool = False, root: bool = False):
+    # pylint: disable=too-many-arguments
     """
     Parse a given binary MS-NRBF stream into a JSON-like data representation.
 
@@ -915,6 +916,7 @@ def parse(handle: BinaryIO, decode: bool = False, expand: bool = False,
 
 def iterparse(handle, decode=False, expand=False,
               backfill=False, crunch=False, root=False):
+    # pylint: disable=too-many-arguments
     n = 1
     while handle.read(1):
         # As long as we have at least one byte, try to read an entire stream.
@@ -928,6 +930,7 @@ def iterparse(handle, decode=False, expand=False,
 
 def parseloop(handle, decode=False, expand=False,
               backfill=False, crunch=False, root=False):
+    # pylint: disable=too-many-arguments
     parsed = list(iterparse(handle, decode, expand, backfill, crunch, root))
     return parsed
 
@@ -967,7 +970,7 @@ def main():
         args.root = True
 
     infile = open(args.inputFile, 'rb')
-    logging.info("{:s}: ".format(args.inputFile))
+    logging.info("%s: ", args.inputFile)
     parsed = parseloop(infile, decode=args.decode, expand=args.expand,
                        backfill=args.backfill, crunch=args.crunch, root=args.root)
 
