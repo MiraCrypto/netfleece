@@ -1,5 +1,5 @@
 distclean:
-	rm -rf dist/ build/ netfleece.egg-info .eggs netfleece/__pycache__
+	rm -rf dist/ build/ netfleece.egg-info .eggs netfleece/__pycache__ .mypy_cache
 
 install:
 	pip install .
