@@ -27,7 +27,7 @@ publish: distclean pristine dist build
 publish-test: distclean pristine dist build
 	python3 -m twine upload --repository-url 'https://test.pypi.org/legacy/' dist/*
 
-.PHONY: clean
+.PHONY: check
 check:
 	python3 -m pylint netfleece/
 	python3 -m flake8 netfleece/

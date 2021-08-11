@@ -2,7 +2,7 @@
 
 netfleece is a small Microsoft .NET Remoting Binary Format (MS-NRBF) parser.
 It is capable of reading in a binary stream and parsing it into a generic,
-json-like structure.
+json-serializable Python-native data structure.
 
 # Why?
 
@@ -28,6 +28,13 @@ project, but also features a formatter that can perform the reverse
 operation.
 
 # Changelog
+
+## v0.1.3
+
+### Misc:
+ - Switch to setuptools & setup.cfg
+ - Use a module-level logger instead of a root-level one
+ - Ensure all 'make check' tests pass.
 
 ## v0.1.2
 
