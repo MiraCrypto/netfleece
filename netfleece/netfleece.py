@@ -19,6 +19,9 @@ from typing import BinaryIO, Iterator, List
 from . import b64stream
 
 
+logger = logging.getLogger(__name__)
+
+
 def valuedispatch(func):
     """
     valuedispatch function decorator, as obtained from
@@ -373,7 +376,7 @@ class RecordStream(NetStream):
     def record(self):
         """Read an entire record from the stream."""
         rtype = self.RecordTypeEnumeration()
-        logging.debug("RecordTypeEnum: %s", rtype.name)
+        logger.debug("RecordTypeEnum: %s", rtype.name)
         obj = rtype.parse(self)
         obj['RecordTypeEnum'] = rtype.name
         return obj
@@ -412,7 +415,7 @@ class RecordStream(NetStream):
         object. Note that this is NOT a copy of the object.
         """
         for reference in self._objrefs:
-            logging.debug("Reference to objid %s", str(reference.refid))
+            logger.debug("Reference to objid %s", str(reference.refid))
             obj = reference.object
             obj.update(self.get_object(reference.refid))
 
@@ -914,9 +917,9 @@ def parse(
         # (backfill/crunch imply root, so no need.)
         jdata = dnb.root()
 
-    logging.info("\tTop level records: %d", len(jdata))
-    logging.info("\tObject Definitions: %d", dnb.object_definitions)
-    logging.info("\tReferences: %d", dnb.object_references)
+    logger.info("\tTop level records: %d", len(jdata))
+    logger.info("\tObject Definitions: %d", dnb.object_definitions)
+    logger.info("\tReferences: %d", dnb.object_references)
 
     return jdata
 
@@ -935,7 +938,7 @@ def iterparse(
         # As long as we have at least one byte, try to read an entire stream.
         handle.seek(-1, os.SEEK_CUR)
 
-        logging.info("\nStream #%d", n)
+        logger.info("\nStream #%d", n)
         jdata = parse(handle, decode, expand, backfill, crunch, root)
         yield jdata
         n += 1
@@ -989,7 +992,7 @@ def main() -> None:
         args.root = True
 
     with open(args.inputFile, 'rb') as infile:
-        logging.info("%s: ", args.inputFile)
+        logger.info("%s: ", args.inputFile)
         parsed = parseloop(
             infile,
             decode=args.decode,
