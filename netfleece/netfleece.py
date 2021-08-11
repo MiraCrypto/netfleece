@@ -5,16 +5,16 @@ https://msdn.microsoft.com/en-us/library/cc236844.aspx
 """
 
 import argparse
+from collections import namedtuple
 import decimal
+from enum import Enum
+from functools import singledispatch, wraps
 import json
 import logging
 import os.path
 import re
 import struct
-from collections import namedtuple
-from enum import Enum
-from functools import singledispatch, wraps
-from typing import BinaryIO
+from typing import BinaryIO, Iterator, List
 
 from . import b64stream
 
@@ -172,9 +172,9 @@ class PrimitiveStream:
 
 
 class PrimitiveTypeEnum(Enum):
-    # pylint: disable=bad-whitespace
     # pylint: disable=unused-argument
     # pylint: disable=no-self-use
+    # pylint: disable=invalid-name
     Boolean  = 1
     Byte     = 2
     Char     = 3
@@ -430,9 +430,9 @@ class BinaryTypeEnum(Enum):
     Enumeration representing a BinaryTypeEnumeration.
     Present in MemberTypeInfo and BinaryArray structures.
     """
-    # pylint: disable=bad-whitespace
     # pylint: disable=unused-argument
     # pylint: disable=no-self-use
+    # pylint: disable=invalid-name
     Primitive      = 0
     String         = 1
     Object         = 2
@@ -488,7 +488,8 @@ class BinaryTypeEnum(Enum):
 
 
 class BinaryArrayTypeEnum(Enum):
-    # pylint: disable=bad-whitespace
+    # pylint: disable=invalid-name
+
     Single            = 0
     Jagged            = 1
     Rectangular       = 2
@@ -501,9 +502,10 @@ class BinaryArrayTypeEnum(Enum):
 
 
 class RecordTypeEnum(Enum):
-    # pylint: disable=bad-whitespace
     # pylint: disable=unused-argument
     # pylint: disable=no-self-use
+    # pylint: disable=invalid-name
+
     SerializedStreamHeader         = 0
     ClassWithId                    = 1
     SystemClassWithMembers         = 2
@@ -843,8 +845,7 @@ class DNBinary:
         return ret
 
     def _find_record_id(self, rid):
-        for i in range(len(self._records)):
-            record = self._records[i]
+        for i, record in enumerate(self._records):
             if record_id(record) == rid:
                 return i
         return None
@@ -883,8 +884,14 @@ class DNBinary:
         return self.f.object_references
 
 
-def parse(handle: BinaryIO, decode: bool = False, expand: bool = False,
-          backfill: bool = False, crunch: bool = False, root: bool = False):
+def parse(
+        handle: BinaryIO,
+        decode: bool = False,
+        expand: bool = False,
+        backfill: bool = False,
+        crunch: bool = False,
+        root: bool = False
+) -> object:
     # pylint: disable=too-many-arguments
     """
     Parse a given binary MS-NRBF stream into a JSON-like data representation.
@@ -914,8 +921,14 @@ def parse(handle: BinaryIO, decode: bool = False, expand: bool = False,
     return jdata
 
 
-def iterparse(handle, decode=False, expand=False,
-              backfill=False, crunch=False, root=False):
+def iterparse(
+        handle: BinaryIO,
+        decode: bool = False,
+        expand: bool = False,
+        backfill: bool = False,
+        crunch: bool = False,
+        root: bool = False
+) -> Iterator[object]:
     # pylint: disable=too-many-arguments
     n = 1
     while handle.read(1):
@@ -928,14 +941,20 @@ def iterparse(handle, decode=False, expand=False,
         n += 1
 
 
-def parseloop(handle, decode=False, expand=False,
-              backfill=False, crunch=False, root=False):
+def parseloop(
+        handle: BinaryIO,
+        decode: bool = False,
+        expand: bool = False,
+        backfill: bool = False,
+        crunch: bool = False,
+        root: bool = False,
+) -> List[object]:
     # pylint: disable=too-many-arguments
     parsed = list(iterparse(handle, decode, expand, backfill, crunch, root))
     return parsed
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description='Convert MSNRBF to json')
     parser.add_argument('-i', dest='inputFile', required=True)
     parser.add_argument('-o', dest='outputFile', required=False)
@@ -969,10 +988,16 @@ def main():
     if args.backfill:
         args.root = True
 
-    infile = open(args.inputFile, 'rb')
-    logging.info("%s: ", args.inputFile)
-    parsed = parseloop(infile, decode=args.decode, expand=args.expand,
-                       backfill=args.backfill, crunch=args.crunch, root=args.root)
+    with open(args.inputFile, 'rb') as infile:
+        logging.info("%s: ", args.inputFile)
+        parsed = parseloop(
+            infile,
+            decode=args.decode,
+            expand=args.expand,
+            backfill=args.backfill,
+            crunch=args.crunch,
+            root=args.root
+        )
 
     if args.outputFile:
         with open(args.outputFile, 'w') as outf:
