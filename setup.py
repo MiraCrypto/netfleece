@@ -16,7 +16,9 @@ def main():
         ),
         'url': "https://gitlab.com/malie-library/netfleece",
         'packages': setuptools.find_packages(),
-        'scripts': ['bin/netfleece'],
+        'entry_points': {
+            'console_scripts': ['netfleece.netfleece:main'],
+        },
         'classifiers': [
             "Development Status :: 2 - Pre-Alpha",
             "License :: OSI Approved :: MIT License",
