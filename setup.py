@@ -1,39 +1,15 @@
 #!/usr/bin/env python3
-"""netfleece installation script."""
 
 import setuptools
+import pkg_resources
 
+def main() -> None:
+    """Meowdy, Ny'all"""
 
-def main():
-    """netfleece installation wrapper"""
-    kwargs = {
-        'name': 'netfleece',
-        'version': '0.1.2',
-        'author': 'nago',
-        'author_email': 'nago@malie.io',
-        'description': (
-            "Python 3.7+ Microsoft .NET Remoting Binary Format (MS-NRBF) to JSON parser"
-        ),
-        'url': "https://gitlab.com/malie-library/netfleece",
-        'packages': setuptools.find_packages(),
-        'entry_points': {
-            'console_scripts': ['netfleece.netfleece:main'],
-        },
-        'classifiers': [
-            "Development Status :: 2 - Pre-Alpha",
-            "License :: OSI Approved :: MIT License",
-            "Natural Language :: English",
-            "Operating System :: OS Independent",  # Uh, I hope, haha
-            "Programming Language :: Python :: 3",
-            "Topic :: Software Development :: Disassemblers",
-        ]
-    }
+    # https://medium.com/@daveshawley/safely-using-setup-cfg-for-metadata-1babbe54c108
+    pkg_resources.require('setuptools>=39.2')
 
-    with open("README.md", "r") as infile:
-        kwargs['long_description'] = infile.read()
-    kwargs['long_description_content_type'] = 'text/markdown'
-
-    setuptools.setup(**kwargs)
+    setuptools.setup()
 
 
 if __name__ == '__main__':
