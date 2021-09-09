@@ -977,7 +977,7 @@ def main() -> None:
         )
 
     if args.outputFile:
-        with open(args.outputFile, 'w') as outf:
+        with open(args.outputFile, 'w', encoding='utf-8') as outf:
             outf.write(json.dumps(parsed))
 
     if args.print:
