@@ -42,3 +42,13 @@ operation.
 - Fix 2.4.3.2 ArraySingleObject not registering ObjectId
 - Fix 2.4.3.3 ArraySinglePrimitive
 - Fix 2.4.3.4 ArraySingleString not registering ObjectId
+
+## v0.1.1 (2019-12-21)
+
+- add streamable b64 support
+- add parseloop to the public API
+- refactored module naming structure
+
+## v0.1.0 (2019-05-16)
+
+- Initial release
