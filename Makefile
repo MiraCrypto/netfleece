@@ -16,15 +16,19 @@ pristine:
 	@[ -z "$(shell git ls-files -o)" ] || \
 		(echo "You have untracked files: $(shell git ls-files -o)"; exit 1)
 
-dist build:
-	python3 setup.py sdist bdist_wheel
+.PHONY: build
+build: dist
 
-publish: distclean pristine dist build
+dist:
+	python3 -m build
+
+.PHONY: publish
+publish: distclean pristine dist
 	git push -v --follow-tags --dry-run
 	python3 -m twine upload dist/*
 	git push --follow-tags
 
-publish-test: distclean pristine dist build
+publish-test: distclean pristine dist
 	python3 -m twine upload --repository-url 'https://test.pypi.org/legacy/' dist/*
 
 .PHONY: check
