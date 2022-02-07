@@ -29,6 +29,9 @@ operation.
 
 # Changelog
 
+## v0.1.3.1
+ - Fix empty PyPI package. Oops.
+
 ## v0.1.3
 
 ### Misc:
