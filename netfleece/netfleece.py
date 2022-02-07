@@ -189,8 +189,7 @@ class PrimitiveTypeEnum(Enum):
 
     @valuedispatch
     def parse(self, _):
-        raise Exception("Unimplemented PrimitiveTypeEnum.parse(%s)" %
-                        repr(self))
+        raise Exception(f"Unimplemented PrimitiveTypeEnum.parse({self!r})")
 
     @parse.register(Boolean)
     def _parse_boolean(self, stream: PrimitiveStream):
@@ -540,8 +539,7 @@ class RecordTypeEnum(Enum):
 
     @valuedispatch
     def parse(self, recf: RecordStream):
-        raise Exception("Unimplemented RecordTypeEnum.parse(%s:%d)" % (
-            self.name, self.value))
+        raise Exception(f"Unimplemented RecordTypeEnum.parse({self.name}:{self.value})")
 
     @parse.register(SerializedStreamHeader)
     def _parse_00(self, streamf: PrimitiveStream):
@@ -636,8 +634,7 @@ class RecordTypeEnum(Enum):
 
         # TODO Implement arrays beyond the 'Single' type
         if binary_array_type.has_bounds():
-            raise Exception("BinaryArray of type {} is not implemented".format(
-                binary_array_type.name))
+            raise Exception(f"BinaryArray of type {binary_array_type.name} is not implemented")
 
         if rank > 1:
             raise Exception(f"BinaryArray with Rank={rank} is not implemented")
