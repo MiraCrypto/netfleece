@@ -23,35 +23,26 @@ logger = logging.getLogger(__name__)
 
 
 def valuedispatch(func):
-    """
-    valuedispatch function decorator, as obtained from
-    http://lukasz.langa.pl/8/single-dispatch-generic-functions/
-    """
-    _func = singledispatch(func)
-
-    @_func.register(Enum)
-    def _enumvalue_dispatch(*args, **kw):
-        enum, value = args[0], args[0].value
-        if value not in _func.registry:
-            return _func.dispatch(object)(*args, **kw)
-        dispatch = _func.registry[value]
-        _func.register(enum, dispatch)
-        return dispatch(*args, **kw)
-
-    @wraps(func)
-    def wrapper(*args, **kw):
-        if args[0] in _func.registry:
-            return _func.registry[args[0]](*args, **kw)
-        return _func(*args, **kw)
+    registry = {}
 
     def register(value):
-        return lambda f: _func.register(value, f)
+        def inner_register(f):
+            registry[value] = f
+            return f
+        return inner_register
 
-    wrapper.register = register
-    wrapper.dispatch = _func.dispatch
-    wrapper.registry = _func.registry
-    return wrapper
+    def dispatcher(*args, **kwargs):
+        value = args[0].value if isinstance(args[0], Enum) else args[0]
+        if value in registry:
+            return registry[value](*args, **kwargs)
+        elif func:
+            return func(*args, **kwargs)
+        else:
+            raise ValueError("No function registered for value: {}".format(value))
 
+    dispatcher.register = register
+    dispatcher.registry = registry
+    return dispatcher
 
 class PrimitiveStream:
     # pylint: disable=too-many-public-methods
